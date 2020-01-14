@@ -25,8 +25,7 @@ import androidx.room.RoomDatabase
  * A database that stores SleepNight information.
  * And a global method to get access to the database.
  *
- * This pattern is pretty much the same for any database,
- * so you can reuse it.
+ * This pattern is pretty much the same for any database, so you can reuse it.
  */
 @Database(entities = [SleepNight::class], version = 1, exportSchema = false)
 abstract class SleepDataBase : RoomDatabase() {
@@ -87,7 +86,7 @@ abstract class SleepDataBase : RoomDatabase() {
                 if (instance == null) {
                     instance = Room.databaseBuilder(
                             context.applicationContext,
-                            SleepDataBase::class.java,
+                            SleepDataBase::class.java,     // DataBase class
                             "sleep_history_database" // DataBase name
                     )
                             // Wipes and rebuilds instead of migrating if no Migration object.
