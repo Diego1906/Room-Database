@@ -18,6 +18,7 @@ package com.example.android.trackmysleepquality.sleeptracker
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Transformations
 import com.example.android.trackmysleepquality.database.SleepDatabaseDao
@@ -60,6 +61,29 @@ class SleepTrackerViewModel(
         formatNights(nights, application.resources)
     }
 
+    /**
+     * Variable that tells the Fragment to navigate to a specific [SleepQualityFragment]
+     *
+     * This is private because we don't want to expose setting this value to the Fragment.
+     */
+    private val _navigateToSleepQuality = MutableLiveData<SleepNight>()
+
+    /**
+     * If this is non-null, immediately navigate to [SleepQualityFragment] and call [doneNavigating]
+     */
+    val navigateToSleepQuality: LiveData<SleepNight>
+        get() = _navigateToSleepQuality
+
+    /**
+     * Call this immediately after navigating to [SleepQualityFragment]
+     *
+     * It will clear the navigation request, so if the user rotates their phone it won't navigate
+     * twice.
+     */
+    fun doneNavigating() {
+        _navigateToSleepQuality.value = null
+    }
+
     init {
         initializeTonight()
     }
@@ -88,22 +112,36 @@ class SleepTrackerViewModel(
         }
     }
 
-    /**
-     * Executes when the START button is clicked.
-     */
-    fun onStartTracking() {
-        uiScope.launch {
-            val newSleepNight = SleepNight()
+    private suspend fun clear() {
+        withContext(Dispatchers.IO) {
+            database.clear()
+        }
+    }
 
-            insert(newSleepNight)
-
-            tonight.value = getTonightFromDatabase()
+    private suspend fun update(night: SleepNight) {
+        withContext(Dispatchers.IO) {
+            database.update(night)
         }
     }
 
     private suspend fun insert(night: SleepNight) {
         withContext(Dispatchers.IO) {
             database.insert(night)
+        }
+    }
+
+    /**
+     * Executes when the START button is clicked.
+     */
+    fun onStartTracking() {
+        uiScope.launch {
+            // Create a new night, which captures the current time,
+            // and insert it into the database.
+            val newSleepNight = SleepNight()
+
+            insert(newSleepNight)
+
+            tonight.value = getTonightFromDatabase()
         }
     }
 
@@ -117,15 +155,14 @@ class SleepTrackerViewModel(
         // not the lambda.
         uiScope.launch {
             val oldNight = tonight.value ?: return@launch
+
             // Update the night in the database to add the end time.
             oldNight.endTimeMilli = System.currentTimeMillis()
-            update(oldNight)
-        }
-    }
 
-    private suspend fun update(night: SleepNight) {
-        withContext(Dispatchers.IO) {
-            database.update(night)
+            update(oldNight)
+
+            // Set state to navigate to the SleepQualityFragment.
+            _navigateToSleepQuality.value = oldNight
         }
     }
 
@@ -136,14 +173,9 @@ class SleepTrackerViewModel(
         uiScope.launch {
             // Clear the database table.
             clear()
+
             // And clear tonight since it's no longer in the database
             tonight.value = null
-        }
-    }
-
-    private suspend fun clear() {
-        withContext(Dispatchers.IO) {
-            database.clear()
         }
     }
 
@@ -155,6 +187,7 @@ class SleepTrackerViewModel(
      */
     override fun onCleared() {
         super.onCleared()
+
         viewModelJob.cancel()
     }
 }
