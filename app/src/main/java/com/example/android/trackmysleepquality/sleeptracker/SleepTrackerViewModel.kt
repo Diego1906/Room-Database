@@ -55,11 +55,32 @@ class SleepTrackerViewModel(
     private val nights = database.getAllNights()
 
     /**
-    //to getTonightFromDatabase().	     * Converted nights to Spanned for displaying.
+     * Converted nights to Spanned for displaying.
      */
     val nightsString = Transformations.map(nights) { nights ->
         formatNights(nights, application.resources)
     }
+
+    /**
+     * If this is non-null, immediately navigate to [SleepQualityFragment] and call [doneNavigating]
+     */
+    val navigateToSleepQuality: LiveData<SleepNight>
+        get() = _navigateToSleepQuality
+
+    val startButtonVisible = Transformations.map(tonight) {
+        null == it
+    }
+    val stopButtonVisible = Transformations.map(tonight) {
+        null != it
+    }
+    val clearButtonVisible = Transformations.map(nights) {
+        it?.isNotEmpty()
+    }
+
+    private var _showSnackbarEvent = MutableLiveData<Boolean>()
+
+    val showSnackBarEvent: LiveData<Boolean>
+        get() = _showSnackbarEvent
 
     /**
      * Variable that tells the Fragment to navigate to a specific [SleepQualityFragment]
@@ -69,10 +90,14 @@ class SleepTrackerViewModel(
     private val _navigateToSleepQuality = MutableLiveData<SleepNight>()
 
     /**
-     * If this is non-null, immediately navigate to [SleepQualityFragment] and call [doneNavigating]
+     * Call this immediately after calling `show()` on a toast.
+     *
+     * It will clear the toast request, so if the user rotates their phone it won't show a duplicate
+     * toast.
      */
-    val navigateToSleepQuality: LiveData<SleepNight>
-        get() = _navigateToSleepQuality
+    fun doneShowingSnackbar() {
+        _showSnackbarEvent.value = false
+    }
 
     /**
      * Call this immediately after navigating to [SleepQualityFragment]
@@ -177,6 +202,9 @@ class SleepTrackerViewModel(
             // And clear tonight since it's no longer in the database
             tonight.value = null
         }
+
+        // Show a snackbar message, because it's friendly.
+        _showSnackbarEvent.value = true
     }
 
     /**
